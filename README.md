@@ -12,7 +12,7 @@ server, use this invite link and pick your server:
 
 You need the **Manage Server** permission in that server. The link asks for the
 permissions the bot needs: View Channels, Read Message History, Manage Messages,
-Send Messages and Attach Files. After adding it, skip to
+Send Messages, Manage Channels, and Attach Files. After adding it, skip to
 [Configure each server](#7-configure-each-server). Using the hosted bot means you
 agree to the [Terms of Service](TERMS_OF_SERVICE.md) and
 [Privacy Policy](PRIVACY_POLICY.md).
