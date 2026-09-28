@@ -1,9 +1,9 @@
 # Privacy Policy
 
-*Last updated: [DATE]*
+*Last updated: 09-24-2026*
 
-This Privacy Policy explains what data this Discord bot ("the Bot") collects
-and how it's used. Replace the bracketed parts, then delete this line.
+This Privacy Policy explains what data this Discord bot "scheduling-reset-bot" collects
+and how it's used.
 
 ## Information the Bot stores
 
@@ -40,13 +40,12 @@ required by law.
 
 Per-server settings are kept for as long as the Bot remains in a server.
 Removing the Bot from a server does not automatically delete its saved
-settings; to request deletion, contact [YOUR CONTACT METHOD].
+settings; to request deletion, use the contact method listed under Contact below.
 
 ## Where data is stored
 
-Server settings are stored on the infrastructure the Bot operator runs it on:
-[DESCRIBE, e.g. "a private server operated by the Bot's developer"]. They are
-not stored by any third-party analytics or data broker.
+Server settings are stored on a private server rented from a third-party
+hosting provider. They are not shared with any analytics service or data broker.
 
 ## Your rights
 
@@ -62,4 +61,4 @@ a change means you accept the updated policy.
 
 ## Contact
 
-Questions about this policy: [YOUR CONTACT METHOD, e.g. a Discord username or email]
+Questions about this policy: stephk @ discord
