@@ -3,22 +3,6 @@
 Clears chosen channels on a schedule, separately for every server the bot is in.
 Also supports clearing on demand and logging what gets deleted.
 
-## Use the hosted bot
-
-You don't have to host the bot yourself. To add the already-running copy to your
-server, use this invite link and pick your server:
-
-**[Add Scheduling Reset Bot to your server](https://discord.com/oauth2/authorize?client_id=1552555234306302083&permissions=109568&integration_type=0&scope=bot)**
-
-You need the **Manage Server** permission in that server. The link asks for the
-permissions the bot needs: View Channels, Read Message History, Manage Messages,
-Send Messages and Attach Files. After adding it, skip to
-[Configure each server](#7-configure-each-server). Using the hosted bot means you
-agree to the [Terms of Service](TERMS_OF_SERVICE.md) and
-[Privacy Policy](PRIVACY_POLICY.md).
-
-To run your own copy instead, follow the setup below.
-
 ## Setup, start to finish
 
 ### 1. Install Python
@@ -41,7 +25,9 @@ if needed. On Windows, check **Add python.exe to PATH** in the installer.
 2. Scopes: check **`bot`** and **`applications.commands`** (the second one is what
    makes the slash commands appear).
 3. Bot permissions: **View Channels**, **Read Message History**, **Manage Messages**,
-   **Send Messages**, **Attach Files**.
+   **Send Messages**, **Attach Files**. Also check **Manage Channels** if you plan to
+   use `/deletechannel` (permanent channel deletion — see below). Everything else works
+   without it.
 4. Open the generated URL and pick your server.
 
 ### 4. Install the dependencies
@@ -53,19 +39,22 @@ pip install -r requirements.txt
 
 ### 5. Add your token
 
-On Windows, copy `start_bot.bat.example` to `start_bot.bat`, open it in a text
-editor and replace `PASTE-YOUR-TOKEN-HERE` with your token. On other systems, set
-the `DISCORD_TOKEN` environment variable instead. `start_bot.bat` is listed in
-`.gitignore`, so your token is never committed.
+Edit `start_bot.bat` and replace `PASTE-YOUR-TOKEN-HERE`, or set the
+`DISCORD_TOKEN` environment variable yourself. Don't commit your token anywhere
+(see the Git section below).
 
 ### 6. Run it
 
 ```
 python bot.py
 ```
-or double-click `start_bot.bat` on Windows. On first run it logs in, loads every
-file in `cogs/`, and registers the slash commands. They can take a few minutes to
-show up in Discord the first time.
+or double-click `start_bot.bat`. On first run it logs in, loads every file in
+`cogs/`, and registers the slash commands. They can take a few minutes to show
+up in Discord the first time.
+
+If you used the old single-file version of this bot, put its `reset_settings.json`
+in this folder before the first run — it's imported once into the new per-server
+files, then renamed to `.migrated`.
 
 ### 7. Configure each server
 
@@ -77,6 +66,7 @@ Run these in each server the bot is in:
 /resettimezone timezone:Eastern              (optional — Eastern is the default)
 /resetlog set channel:#deleted-log           (optional — off by default)
 ```
+`/deletechannel` and `/clearchannel` don't need setup — they work on any channel when you run them.
 Check it worked with `/resetnext`.
 
 ## Commands
@@ -105,6 +95,8 @@ All commands need the **Manage Server** permission, except `/resetdays view` and
 | `/resetlog set channel:#name` | Log every deletion (and the deleted messages) to that channel |
 | `/resetlog off` | Stop logging (nothing is posted anywhere — this is the default) |
 | `/resetlog view` | Show the current log channel |
+| `/clearchannel channel:#name` | Clear a channel's **messages** now, or queue it for the next scheduled run. The channel is kept. |
+| `/deletechannel channel:#name` | **Permanently delete the entire channel** — now, or queued for the next scheduled run. Irreversible. Needs Manage Channels too, and requires typing the channel's name to confirm. |
 
 A change made with any command takes effect immediately: if that day's reset time
 hasn't passed yet, it runs today at the new time; if it has already passed, it
@@ -120,12 +112,14 @@ starts from the next scheduled day instead.
 | `timeutils.py` | Parsing of days/times/timezones and the text the bot replies with. |
 | `clearing.py` | Deleting messages from a channel. Used by both the schedule and `/clearnow`. |
 | `deletion_log.py` | Writes the deletion log to a server's log channel (if it has one). |
+| `channel_deletion.py` | Permanently deletes a channel (used by `/deletechannel` and the scheduler). |
 | `cogs/scheduler.py` | The clock check and the channel clearing. |
 | `cogs/schedule_commands.py` | `/resetdays`, `/resettime`, `/resettimezone`, `/resetnext` |
 | `cogs/channel_commands.py` | `/resetchannels list / add / remove / cleanup` |
 | `cogs/clear_commands.py` | `/clearnow` (delete now, with confirmation) and `/resetamount` |
 | `cogs/log_commands.py` | `/resetlog set / off / view`: the deletion log channel |
-| `start_bot.bat.example` | Windows launcher template. Copy to `start_bot.bat` and add your token. |
+| `cogs/clearchannel_commands.py` | `/clearchannel`: clear a channel's messages now, or queue it (channel is kept) |
+| `cogs/channel_delete_commands.py` | `/deletechannel`: permanently delete a channel, now or queued (irreversible) |
 | `data/guilds/<server id>.json` | Created automatically: each server's saved settings. |
 
 ## Clearing messages manually
@@ -153,6 +147,43 @@ set, the older messages stay, because each run removes only the newest ones.
 `/clearnow` and the schedule never run on the same channel at the same time: whichever starts
 second waits for the first to finish.
 
+## /deletechannel
+
+`/deletechannel channel:#name` works on any text channel in the server — it doesn't
+need to be on the `/resetchannels` list — and gives you two options:
+
+- **Delete Now** — deletes every message in that channel immediately (same confirmation-free
+  action as `/clearnow`, just for one channel).
+- **Queue for Next Run** — clears that channel once, the next time the schedule fires, without
+  adding it to the permanent list. After that one run, it's automatically removed from the
+  queue. Queuing a channel that's already on the permanent list is fine; it's simply cleared
+  once that run, not twice.
+
+Queued channels always clear completely (queuing one is a deliberate one-off action, so the
+`/resetamount` limit doesn't apply to them). `/resetdays view` and `/resetnext` show how many
+channels are currently queued.
+
+## /deletechannel — permanently deleting a channel
+
+`/deletechannel channel:#name` deletes the **entire channel**, not just its messages.
+This is irreversible: Discord has no "undo" for a deleted channel, and its permission
+overrides and position in the server cannot be recovered. It's a different command
+from `/clearchannel` on purpose, so the two are never confused.
+
+- **Delete Channel Now** deletes it immediately.
+- **Queue Deletion for Next Run** deletes it automatically the next time the schedule
+  fires, with **no further confirmation at that moment** — so only queue a deletion
+  you're sure about.
+- **Both options require typing the channel's name** in a popup before anything happens,
+  as a safeguard against a misclick.
+- If the server has a deletion log channel set, the channel's full message history is
+  logged there (marked "channel permanently deleted") right before the channel is deleted.
+- The bot needs the **Manage Channels** permission for this command, on top of the others.
+- A channel can't be both the deletion target and the log channel.
+- Queuing a channel for deletion automatically removes it from the regular clearing list
+  and the message-clear queue, since there's no point clearing a channel about to be
+  destroyed.
+
 ## Deletion log
 
 `/resetlog set channel:#deleted-log` makes the bot post a record every time it deletes
@@ -170,23 +201,29 @@ Short logs are posted as a message; long ones are attached as a `.txt` file.
 
 ## License, Privacy Policy and Terms of Service
 
-- **[License](LICENSE)**: MIT. You may use, copy, modify and share this code as
-  long as the copyright notice is kept. It comes with no warranty.
-- **[Privacy Policy](PRIVACY_POLICY.md)**: what the bot stores, what it processes,
-  and how that data is used.
-- **[Terms of Service](TERMS_OF_SERVICE.md)**: the terms for adding and using the bot.
-
-The Privacy Policy and Terms of Service cover the copy of the bot run by this
-repository's owner. If you host your own copy, you are its operator, and these
-documents don't cover it.
+- **`LICENSE`** — MIT. Says other people can use, copy, and modify this code,
+  with no warranty, as long as they keep the copyright notice.
+- **`PRIVACY_POLICY.md`** and **`TERMS_OF_SERVICE.md`** — templates covering what
+  the Bot stores and how it may be used. Fill in the bracketed placeholders
+  (date, contact method, where you host the settings) before using them.
+  You need these two if you ever apply for Discord's bot verification (required
+  once a bot is in 100+ servers) — the Developer Portal asks for a Privacy
+  Policy URL and a Terms of Service URL. For a bot running only in your own
+  server(s), verification isn't required and these files are optional, but
+  they're good practice to have regardless.
+- To give them a URL Discord can use: push this repo to GitHub, then turn on
+  **Settings → Pages** for the repo. Your files will be reachable at
+  `https://your-name.github.io/your-repo/PRIVACY_POLICY.html` (GitHub Pages
+  renders `.md` files as pages). Paste that URL, and the equivalent one for
+  Terms of Service, into the Developer Portal under your app's **General
+  Information** tab.
 
 ## Updating the bot
 
-Settings live in `data/`, separate from the code, so you can pull new code with
-`git pull` (or replace any `.py` file) and keep every server's settings, as long as
-you leave `data/` in place. To keep settings completely separate, set `BOT_DATA_DIR`
-to a folder outside the bot folder (there's a commented-out line for it in
-`start_bot.bat.example`).
+Settings live in `data/`, separate from the code, so you can replace any `.py` file
+(or the whole code folder) and keep every server's settings, as long as you leave
+`data/` in place. To make that automatic, set `BOT_DATA_DIR` to a folder outside the
+bot folder (see `start_bot.bat`).
 
 - **New commands:** add a new `.py` file to `cogs/` (copy an existing one as a pattern),
   then restart. It's found and loaded automatically and the slash commands are re-registered.

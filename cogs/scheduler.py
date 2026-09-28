@@ -6,8 +6,10 @@ newest N messages. It has no slash commands; those live in the other files.
 """
 from __future__ import annotations
 
+import discord
 from discord.ext import commands, tasks
 
+import channel_deletion
 import clearing
 import config
 import deletion_log
@@ -38,10 +40,14 @@ class Scheduler(commands.Cog):
                 if not gs.is_due(now):
                     continue
                 gs.last_run = now.date()   # mark first so a slow purge can't double-trigger
-                if not gs.channels:
+                if not gs.channels and not gs.queued and not gs.delete_queue:
                     continue
                 print(f"[{now:%Y-%m-%d %H:%M:%S %Z}] running reset for {guild.name} ({guild.id})")
+                await self.delete_queued_channels(guild, gs)   # entire deletions happen first
                 await self.reset_guild(guild, gs)
+                if gs.queued:
+                    gs.queued = []
+                    self.bot.store.commit(gs)
             except Exception as e:
                 print(f"[ERR]  {guild.id}: {type(e).__name__}: {e}")
 
@@ -61,17 +67,47 @@ class Scheduler(commands.Cog):
 
     # ---- the actual clearing -----------------------------------------------
 
+    async def delete_queued_channels(self, guild, gs):
+        """Permanently delete every channel queued for full deletion, in this server."""
+        for channel_id in list(gs.delete_queue):
+            try:
+                channel = self.bot.get_channel(channel_id)
+                if channel is None:
+                    channel = await self.bot.fetch_channel(channel_id)
+                owner = getattr(channel, "guild", None)
+                if owner is None or owner.id != guild.id:
+                    print(f"[WARN] {guild.name}: queued-for-deletion channel {channel_id} isn't in this server, skipped")
+                    gs.delete_queue = [c for c in gs.delete_queue if c != channel_id]
+                    self.bot.store.commit(gs)
+                    continue
+                await channel_deletion.delete_channel_entirely(self.bot, channel, "scheduled reset")
+            except discord.NotFound:
+                # Already gone (deleted by hand, etc.) — just drop it from the queue.
+                gs.delete_queue = [c for c in gs.delete_queue if c != channel_id]
+                self.bot.store.commit(gs)
+            except Exception as e:
+                print(f"[ERR]  {guild.name} channel {channel_id} (scheduled deletion): {type(e).__name__}: {e}")
+
     async def reset_guild(self, guild, gs):
-        if not gs.channels:
+        # The regular list uses gs.amount; queued channels are always cleared
+        # completely, since queuing one is a deliberate one-off action. Anything
+        # already handled by delete_queued_channels() is gone, so it's naturally
+        # skipped here (forget_channel() removed it from these lists too).
+        targets = [(cid, gs.amount) for cid in gs.channels] + [(cid, None) for cid in gs.queued]
+        if not targets:
             print(f"[WARN] {guild.name}: no channels configured, nothing to reset")
             return
-        for channel_id in list(gs.channels):
+        seen = set()
+        for channel_id, amount in targets:
+            if channel_id in seen:
+                continue   # e.g. queued while already on the permanent list; clear it only once
+            seen.add(channel_id)
             if channel_id == gs.log_channel:
                 print(f"[WARN] {guild.name}: channel {channel_id} is both a reset channel and the log channel, skipped")
                 continue
             # One bad channel (deleted, no permissions, etc.) shouldn't stop the rest.
             try:
-                await self.reset_channel(guild, channel_id, gs.amount)
+                await self.reset_channel(guild, channel_id, amount)
             except Exception as e:
                 print(f"[ERR]  {guild.name} channel {channel_id}: {type(e).__name__}: {e}")
 

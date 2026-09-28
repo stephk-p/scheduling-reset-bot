@@ -24,6 +24,8 @@ class GuildSettings:
     channels: list = field(default_factory=list)
     amount: int | None = None               # newest messages per channel per scheduled reset; None = all
     log_channel: int | None = None          # where deleted messages are logged; None = no logging
+    queued: list = field(default_factory=list)   # channels to clear ONCE at the next scheduled run, then removed
+    delete_queue: list = field(default_factory=list)   # channels to be PERMANENTLY DELETED at the next scheduled run
     last_run: datetime.date | None = None   # runtime only, not saved
 
     # ---- loading / saving -------------------------------------------------
@@ -58,6 +60,16 @@ class GuildSettings:
         log_channel = data.get("log_channel")
         if isinstance(log_channel, int) and not isinstance(log_channel, bool) and log_channel > 0:
             gs.log_channel = log_channel
+        if "queued" in data:
+            try:
+                gs.queued = list(dict.fromkeys(int(c) for c in data["queued"]))
+            except (TypeError, ValueError):
+                pass
+        if "delete_queue" in data:
+            try:
+                gs.delete_queue = list(dict.fromkeys(int(c) for c in data["delete_queue"]))
+            except (TypeError, ValueError):
+                pass
         return gs
 
     def to_dict(self) -> dict:
@@ -68,6 +80,8 @@ class GuildSettings:
             "channels": list(self.channels),
             "amount": self.amount,
             "log_channel": self.log_channel,
+            "queued": list(self.queued),
+            "delete_queue": list(self.delete_queue),
         }
 
     # ---- schedule logic ---------------------------------------------------
@@ -97,6 +111,14 @@ class GuildSettings:
             and now.time() >= self.time
             and self.last_run != now.date()
         )
+
+    def forget_channel(self, channel_id: int) -> None:
+        """Remove a channel from every list that references it (used once a channel is gone for good)."""
+        self.channels = [c for c in self.channels if c != channel_id]
+        self.queued = [c for c in self.queued if c != channel_id]
+        self.delete_queue = [c for c in self.delete_queue if c != channel_id]
+        if self.log_channel == channel_id:
+            self.log_channel = None
 
     def upcoming_runs(self, count: int = 1) -> list:
         """The next `count` times the reset will run, given the current settings."""

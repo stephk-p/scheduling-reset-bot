@@ -135,9 +135,15 @@ def describe_schedule(gs, markup: bool = True) -> str:
         text += f"\nDeleted messages are logged to {where}."
     else:
         text += "\nDeleted messages are not logged (no log channel set)."
+    if gs.queued:
+        text += f"\n{len(gs.queued)} channel(s) queued to have their messages cleared once at the next run."
+    if gs.delete_queue:
+        text += f"\n⚠️ {len(gs.delete_queue)} channel(s) queued to be **permanently deleted** at the next run."
     runs = gs.upcoming_runs(1)
     if runs:
         text += f"\nNext run: {format_run(gs, runs[0], markup)}"
-    if not gs.channels:
+    if not gs.channels and not gs.queued:
         text += "\nNo channels are set up yet, so nothing will be cleared. Add one with /resetchannels add."
+    elif not gs.channels:
+        text += "\nNo channels are on the permanent list, only the queued one(s) above."
     return text
