@@ -55,17 +55,30 @@ pip install -r requirements.txt
 
 ### 5. Add your token
 
-On Windows, copy `start_bot.bat.example` to `start_bot.bat`, open it in a text
-editor and replace `PASTE-YOUR-TOKEN-HERE` with your token. On other systems, set
-the `DISCORD_TOKEN` environment variable instead. `start_bot.bat` is listed in
-`.gitignore`, so your token is never committed.
+The bot reads its token from the `DISCORD_TOKEN` environment variable. Set it in
+the same terminal you'll start the bot from, replacing `your-token-here` with the
+token you copied in step 2.
+
+Windows (PowerShell):
+```
+$env:DISCORD_TOKEN = "your-token-here"
+```
+
+Mac/Linux:
+```
+export DISCORD_TOKEN="your-token-here"
+```
+
+This lasts until you close that terminal. Keep your token private: anyone who has
+it can control your bot. If it leaks, reset it on the **Bot** tab of the Developer
+Portal.
 
 ### 6. Run it
 
 ```
 python bot.py
 ```
-or double-click `start_bot.bat`. On first run it logs in, loads every file in
+On first run it logs in, loads every file in
 `cogs/`, and registers the slash commands. They can take a few minutes to show
 up in Discord the first time.
 
@@ -235,8 +248,9 @@ documents don't cover it.
 
 Settings live in `data/`, separate from the code, so you can replace any `.py` file
 (or the whole code folder) and keep every server's settings, as long as you leave
-`data/` in place. To make that automatic, set `BOT_DATA_DIR` to a folder outside the
-bot folder (see `start_bot.bat`).
+`data/` in place. To keep settings completely separate, set the `BOT_DATA_DIR`
+environment variable to a folder outside the bot folder, the same way you set
+`DISCORD_TOKEN` in step 5.
 
 - **New commands:** add a new `.py` file to `cogs/` (copy an existing one as a pattern),
   then restart. It's found and loaded automatically and the slash commands are re-registered.
