@@ -163,9 +163,9 @@ set, the older messages stay, because each run removes only the newest ones.
 `/clearnow` and the schedule never run on the same channel at the same time: whichever starts
 second waits for the first to finish.
 
-## /deletechannel
+## /clearchannel
 
-`/deletechannel channel:#name` works on any text channel in the server — it doesn't
+`/clearchannel channel:#name` works on any text channel in the server — it doesn't
 need to be on the `/resetchannels` list — and gives you two options:
 
 - **Delete Now** — deletes every message in that channel immediately (same confirmation-free
@@ -199,6 +199,9 @@ from `/clearchannel` on purpose, so the two are never confused.
 - Queuing a channel for deletion automatically removes it from the regular clearing list
   and the message-clear queue, since there's no point clearing a channel about to be
   destroyed.
+
+  <img width="459" height="232" alt="image" src="https://github.com/user-attachments/assets/80683670-3b57-4948-82be-e7ecc220a375" />
+
 
 ## Deletion log
 
